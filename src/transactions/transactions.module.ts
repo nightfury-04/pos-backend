@@ -7,9 +7,13 @@ import {
   TransactionContents,
 } from './entities/transaction.entity';
 import { Product } from 'src/products/entities/product.entity';
+import { CouponsModule } from 'src/coupons/coupons.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Transaction, TransactionContents, Product])],
+  imports: [
+    TypeOrmModule.forFeature([Transaction, TransactionContents, Product]),
+    CouponsModule,
+  ],
   controllers: [TransactionsController],
   providers: [TransactionsService],
 })

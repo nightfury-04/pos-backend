@@ -13,6 +13,7 @@ import {
 import { Between, FindManyOptions, Repository } from 'typeorm';
 import { Product } from 'src/products/entities/product.entity';
 import { endOfDay, isValid, parseISO, startOfDay } from 'date-fns';
+import { CouponsService } from 'src/coupons/coupons.service';
 
 @Injectable()
 export class TransactionsService {
@@ -23,16 +24,29 @@ export class TransactionsService {
     private readonly transactionContentsRepository: Repository<TransactionContents>,
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
+    private readonly couponService: CouponsService,
   ) {}
 
   async create(createTransactionDto: CreateTransactionDto) {
     await this.productRepository.manager.transaction(
       async (transactionEntityManager) => {
         const transaction = new Transaction();
-        transaction.total = createTransactionDto.contents.reduce(
+        const total = createTransactionDto.contents.reduce(
           (total, item) => total + item.quantity * item.price,
           0,
         );
+        transaction.total = total;
+
+        if (createTransactionDto.coupon) {
+          const coupon = await this.couponService.applyCoupon(
+            createTransactionDto.coupon,
+          );
+
+          const discount = (coupon.percentage / 100) * total;
+          transaction.discount = discount;
+          transaction.coupon = coupon.name;
+          transaction.total -= discount;
+        }
 
         for (const contents of createTransactionDto.contents) {
           const product = await transactionEntityManager.findOneBy(Product, {
@@ -117,21 +131,26 @@ export class TransactionsService {
   async remove(id: number) {
     const transaction = await this.findOne(id);
 
-    for(const contents of transaction.contents) {
-      const product = await this.productRepository.findOneBy({id: contents.product.id})
+    for (const contents of transaction.contents) {
+      const product = await this.productRepository.findOneBy({
+        id: contents.product.id,
+      });
       if (!product) {
-        throw new NotFoundException(`Producto con id ${contents.product.id} no encontrado`);
+        throw new NotFoundException(
+          `Producto con id ${contents.product.id} no encontrado`,
+        );
       }
-      product.inventory += contents.quantity
-      await this.productRepository.save(product)
+      product.inventory += contents.quantity;
+      await this.productRepository.save(product);
 
-      const transactionContents = await this.transactionContentsRepository.findOneBy({id: contents.id})
+      const transactionContents =
+        await this.transactionContentsRepository.findOneBy({ id: contents.id });
       if (transactionContents) {
-        await this.transactionContentsRepository.remove(transactionContents)
+        await this.transactionContentsRepository.remove(transactionContents);
       }
     }
 
-    await this.transactionRepository.remove(transaction)
+    await this.transactionRepository.remove(transaction);
     return { message: 'Venta eliminada' };
   }
 }
