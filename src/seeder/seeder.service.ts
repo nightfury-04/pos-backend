@@ -18,8 +18,10 @@ export class SeederService {
 
   async onModuleInit() {
     const connection = this.dataSource;
-    await connection.dropDatabase();
-    await connection.synchronize();
+    if (process.env.NODE_ENV === 'development') {
+      await connection.dropDatabase();
+      await connection.synchronize();
+    }
   }
 
   async seed() {
