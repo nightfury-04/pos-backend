@@ -5,6 +5,9 @@ export class CreateProductDto {
   @IsString({ message: 'Valor no válido' })
   name: string;
 
+  @IsNotEmpty({ message: 'La imagen es obligatoria' })
+  image: string;
+
   @IsNotEmpty({ message: 'El precio del producto es obligatorio' })
   @IsNumber({ maxDecimalPlaces: 2 }, { message: 'Cantidad no válida' })
   price: number;
